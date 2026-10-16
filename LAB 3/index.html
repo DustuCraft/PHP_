@@ -1,0 +1,601 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Учёт потребления электроэнергии</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #141c26;
+    --panel: #1b2530;
+    --panel-alt: #212d3a;
+    --border: #2c3948;
+    --text: #e7ecf2;
+    --text-dim: #8fa0b2;
+    --amber: #f2a93b;
+    --valid: #4fd1ae;
+    --invalid: #e8604c;
+    --stop: #5ea8ff;
+    --unreached: #3c4a59;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(28px, 5vw, 40px);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--text-dim);
+    font-size: 16px;
+    max-width: 56ch;
+    margin: 0 0 36px;
+  }
+
+  /* Scenario switcher */
+  .switcher {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .switcher button {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .switcher button:hover { color: var(--text); border-color: #3d4f61; }
+  .switcher button.active {
+    color: var(--bg);
+    background: var(--amber);
+    border-color: var(--amber);
+    font-weight: 600;
+  }
+
+  section { margin-bottom: 36px; }
+  .section-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0 0 14px;
+  }
+
+  /* Reading tiles */
+  .tiles {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tile {
+    position: relative;
+    min-width: 85px;
+    padding: 12px 10px 10px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--panel);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: rise .35s ease forwards;
+  }
+  .tile .id-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .tile .val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .tile .status {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .tile.valid { border-color: var(--valid); background: #17352c; }
+  .tile.valid .val { color: var(--valid); }
+  .tile.invalid { border-color: var(--invalid); background: #391f1c; }
+  .tile.invalid .val { color: var(--invalid); text-decoration: line-through; text-decoration-color: #e8604c88; }
+  .tile.stop { border-color: var(--stop); background: #17293f; border-radius: 14px 4px 14px 4px; }
+  .tile.stop .val { color: var(--stop); }
+  .tile.throw { border-color: var(--invalid); background: #4a201c; box-shadow: 0 0 0 3px #e8604c33; }
+  .tile.throw .val { color: var(--invalid); }
+  .tile.unreached { border-style: dashed; opacity: .5 !important; animation: none; }
+  .tile.unreached .val { color: var(--unreached); }
+  .tile.unreached .status { color: var(--unreached); }
+
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  /* Results */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 20px;
+  }
+  .stat .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--amber);
+  }
+  .stat .lbl {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Tariff gauge */
+  .gauge-wrap { margin-top: 26px; }
+  .gauge {
+    position: relative;
+    height: 34px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid var(--border);
+  }
+  .gauge .band { flex: 1 1 0; display: flex; align-items: center; justify-content: center; font-size: 11.5px; color: #0e161f; font-weight: 600; }
+  .gauge .b1 { background: #4fd1ae; flex-grow: 1; }
+  .gauge .b2 { background: #f2c94c; flex-grow: 1.5; }
+  .gauge .b3 { background: #f2994a; flex-grow: 1.5; }
+  .gauge .b4 { background: #eb5757; flex-grow: 1; }
+  .gauge .marker {
+    position: absolute;
+    top: -6px;
+    width: 3px;
+    height: 46px;
+    background: var(--text);
+    transition: left .4s ease;
+  }
+  .gauge .marker::after {
+    content: attr(data-val);
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .category {
+    margin-top: 14px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--text);
+  }
+
+  /* HTML List for Valid Values */
+  .valid-list-wrap {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border);
+  }
+  .valid-list {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--valid);
+  }
+  .valid-list li { margin-bottom: 4px; }
+
+  /* Interactive consumption panel */
+  .interactive-panel {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .control-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .control-group label {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  .control-group input {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    outline: none;
+    width: 130px;
+  }
+  .btn-consume {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--valid);
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    cursor: pointer;
+    transition: opacity .15s ease;
+  }
+  .btn-consume:hover { opacity: 0.9; }
+  .btn-reset {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    color: var(--invalid);
+    background: transparent;
+    border: 1px solid var(--invalid);
+    border-radius: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  /* Error card */
+  .error-card {
+    border: 1px solid #5c342f;
+    background: #241715;
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .error-kind {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--invalid);
+    letter-spacing: .02em;
+  }
+  .error-msg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    color: #f3d4cf;
+    margin-top: 8px;
+  }
+
+  .finally-note {
+    margin-top: 18px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .finally-note .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); }
+
+  footer {
+    margin-top: 44px;
+    font-size: 12.5px;
+    color: var(--unreached);
+  }
+
+  @media (max-width: 480px) {
+    .tile { min-width: 62px; padding: 11px 6px 9px; }
+    .tile .val { font-size: 15px; }
+    .btn-reset { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Учёт потребления электроэнергии</h1>
+  <p class="lede">Показания идут одно за другим — какие-то учитываются, какие-то пропускаются, а маркер <code>-1</code> обрывает обработку сразу.</p>
+
+  <div class="switcher" id="switcher"></div>
+
+  <!-- Панель ручного ввода потребления -->
+  <div id="interactive-controls" style="display: none;" class="interactive-panel">
+    <div class="section-label" style="margin-bottom: 10px; color: var(--amber);">Интерактивный тест потребления электроэнергии</div>
+    <div class="control-group">
+      <label for="energy-val">Значение (кВт·ч):</label>
+      <input type="number" id="energy-val" value="150" step="10">
+
+      <button class="btn-consume" onclick="addCustomConsumption()">Потребить</button>
+      <button class="btn-reset" onclick="resetInteractiveData()">Сбросить</button>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button class="switcher button" style="padding: 4px 10px; font-size: 12px;" onclick="addQuickConsumption(50)">+50 кВт·ч</button>
+      <button class="switcher button" style="padding: 4px 10px; font-size: 12px;" onclick="addQuickConsumption(200)">+200 кВт·ч</button>
+      <button class="switcher button" style="padding: 4px 10px; font-size: 12px;" onclick="addQuickConsumption(600)">+600 (Ошибка)</button>
+      <button class="switcher button" style="padding: 4px 10px; font-size: 12px;" onclick="addQuickConsumption(-1)">-1 (Стоп)</button>
+    </div>
+  </div>
+
+  <section>
+    <p class="section-label">Входящие показания (кВт·ч)</p>
+    <div class="tiles" id="tiles"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#4fd1ae"></i>учтено</span>
+      <span><i class="dot" style="background:#e8604c"></i>пропущено (вне диапазона)</span>
+      <span><i class="dot" style="background:#5ea8ff"></i>маркер остановки</span>
+      <span><i class="dot" style="background:#e8604c"></i>вызвало исключение</span>
+      <span><i class="dot" style="background:#3c4a59"></i>не достигнуто</span>
+    </div>
+  </section>
+
+  <section id="outcome"></section>
+
+  <footer id="finally"></footer>
+
+</div>
+
+<script>
+const MIN_VALUE = 0, MAX_VALUE = 500, STOP_MARKER = -1, MAX_INVALID_ALLOWED = 2;
+
+// Сценарии тестирования согласно спецификации
+const SCENARIOS = {
+  s1: {
+    label: '1. Корректные данные',
+    ids: ['REC-101', 'REC-102', 'REC-103', 'REC-104'],
+    data: [120, 250, 310, 420]
+  },
+  s2: {
+    label: '2. Нижняя граница',
+    ids: ['REC-201', 'REC-202', 'REC-203'],
+    data: [0, 50, 100]
+  },
+  s3: {
+    label: '3. Верхняя граница',
+    ids: ['REC-301', 'REC-302', 'REC-303'],
+    data: [450, 500, 499]
+  },
+  s4: {
+    label: '4. Недопустимое значение',
+    ids: ['REC-401', 'REC-402', 'REC-403', 'REC-404'],
+    data: [-15, 600, -50, 100]
+  },
+  s5: {
+    label: '5. Пустой набор / пропуски',
+    ids: ['REC-501', 'REC-502'],
+    data: [-10, 800]
+  },
+  s6: {
+    label: '6. Маркер остановки',
+    ids: ['REC-601', 'REC-602', 'REC-603', 'REC-604'],
+    data: [150, -1, 300, 400]
+  },
+  customTest: {
+    label: 'Ручной интерактивный тест',
+    ids: ['REC-701', 'REC-702', 'REC-703', 'REC-704'],
+    data: [120, 250, 80, 310],
+    isInteractive: true
+  }
+};
+
+function classifyTariff(avg) {
+  if (avg < 100) return 'Экономичный тариф';
+  if (avg < 250) return 'Стандартный тариф';
+  if (avg < 400) return 'Повышенный тариф';
+  return 'Пиковый тариф';
+}
+
+function run(data, ids) {
+  const trace = [];
+  const validArray = []; // Отдельный массив для допустимых значений (Доп. задание)
+  let processedCount = 0, invalidCount = 0, sum = 0, peak = -Infinity;
+  let outcome = null;
+
+  try {
+    for (let i = 0; i < data.length; i++) {
+      const value = data[i];
+      const id = ids[i] || `REC-${100 + i}`;
+
+      if (value === STOP_MARKER) {
+        trace.push({ i, id, value, status: 'stop' });
+        break;
+      }
+
+      if (value < MIN_VALUE || value > MAX_VALUE) {
+        invalidCount++;
+        if (invalidCount > MAX_INVALID_ALLOWED) {
+          trace.push({ i, id, value, status: 'throw' });
+          // Включение идентификатора записи в сообщение об исключении (Доп. задание)
+          throw { 
+            kind: 'InvalidArgumentException',
+            message: `Ошибка в записи [${id}]: Превышен допустимый лимит некорректных показаний (${invalidCount}). Значение: ${value}.` 
+          };
+        }
+        trace.push({ i, id, value, status: 'invalid' });
+        continue;
+      }
+
+      processedCount++;
+      sum += value;
+      peak = Math.max(peak, value);
+      
+      // Сохраняем допустимую запись
+      validArray.push({ id, value });
+      trace.push({ i, id, value, status: 'valid' });
+    }
+
+    if (processedCount === 0) {
+      throw { 
+        kind: 'DivisionByZeroError',
+        message: 'Нет допустимых показаний для расчёта среднего значения.' 
+      };
+    }
+
+    const average = sum / processedCount;
+    outcome = {
+      type: 'success',
+      processed: processedCount,
+      sum, average, peak,
+      category: classifyTariff(average),
+      validArray
+    };
+  } catch (e) {
+    outcome = { type: 'error', kind: e.kind, message: e.message };
+  }
+
+  // Маркировка необработанных элементов
+  for (let i = trace.length; i < data.length; i++) {
+    const id = ids[i] || `REC-${100 + i}`;
+    trace.push({ i, id, value: data[i], status: 'unreached' });
+  }
+
+  return { trace, outcome };
+}
+
+const statusLabel = {
+  valid: 'учтено', invalid: 'пропущено', stop: 'стоп', throw: 'ошибка', unreached: 'не достигнуто'
+};
+
+function addCustomConsumption() {
+  const inputEl = document.getElementById('energy-val');
+  const val = Number(inputEl.value);
+  const nextIndex = SCENARIOS.customTest.data.length + 1;
+
+  SCENARIOS.customTest.data.push(val);
+  SCENARIOS.customTest.ids.push(`REC-7${nextIndex < 10 ? '0' + nextIndex : nextIndex}`);
+  render('customTest');
+}
+
+function addQuickConsumption(amount) {
+  const nextIndex = SCENARIOS.customTest.data.length + 1;
+  SCENARIOS.customTest.data.push(amount);
+  SCENARIOS.customTest.ids.push(`REC-7${nextIndex < 10 ? '0' + nextIndex : nextIndex}`);
+  render('customTest');
+}
+
+function resetInteractiveData() {
+  SCENARIOS.customTest.data = [120, 250, 80, 310];
+  SCENARIOS.customTest.ids = ['REC-701', 'REC-702', 'REC-703', 'REC-704'];
+  render('customTest');
+}
+
+function render(key) {
+  const scenario = SCENARIOS[key];
+
+  const controlsEl = document.getElementById('interactive-controls');
+  controlsEl.style.display = scenario.isInteractive ? 'block' : 'none';
+
+  const { trace, outcome } = run(scenario.data, scenario.ids);
+
+  // Переключатель сценариев
+  const sw = document.getElementById('switcher');
+  sw.innerHTML = '';
+  Object.entries(SCENARIOS).forEach(([k, s]) => {
+    const b = document.createElement('button');
+    b.textContent = s.label;
+    if (k === key) b.classList.add('active');
+    b.onclick = () => render(k);
+    sw.appendChild(b);
+  });
+
+  // Карточки элементов
+  const tilesEl = document.getElementById('tiles');
+  tilesEl.innerHTML = '';
+  trace.forEach((t, idx) => {
+    const div = document.createElement('div');
+    div.className = `tile ${t.status}`;
+    div.style.animationDelay = (idx * 35) + 'ms';
+    const val = t.status === 'stop' ? 'СТОП' : t.value;
+    div.innerHTML = `
+      <div class="id-tag">${t.id}</div>
+      <div class="val">${val}</div>
+      <div class="status">${statusLabel[t.status]}</div>
+    `;
+    tilesEl.appendChild(div);
+  });
+
+  // Результаты обработки
+  const out = document.getElementById('outcome');
+  if (outcome.type === 'success') {
+    const pos = Math.min(outcome.average, 500) / 500 * 100;
+    
+    // Формирование HTML-списка допустимых значений
+    const listItemsHtml = outcome.validArray
+      .map(item => `<li><strong>${item.id}:</strong> ${item.value} кВт·ч</li>`)
+      .join('');
+
+    out.innerHTML = `
+      <p class="section-label">Итоги обработки</p>
+      <div class="panel">
+        <div class="stats">
+          <div class="stat"><div class="num">${outcome.processed}</div><div class="lbl">обработано значений</div></div>
+          <div class="stat"><div class="num">${outcome.sum}</div><div class="lbl">сумма, кВт·ч</div></div>
+          <div class="stat"><div class="num">${outcome.average.toFixed(2)}</div><div class="lbl">среднее, кВт·ч</div></div>
+          <div class="stat"><div class="num">${outcome.peak}</div><div class="lbl">пиковое значение</div></div>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge">
+            <div class="band b1">0–100</div>
+            <div class="band b2">100–250</div>
+            <div class="band b3">250–400</div>
+            <div class="band b4">400–500</div>
+            <div class="marker" style="left:${pos}%" data-val="${outcome.average.toFixed(0)}"></div>
+          </div>
+          <div class="category">${outcome.category}</div>
+        </div>
+
+        <div class="valid-list-wrap">
+          <div class="section-label" style="margin: 0; color: var(--valid);">Допустимые значения (HTML-список):</div>
+          <ul class="valid-list">
+            ${listItemsHtml}
+          </ul>
+        </div>
+      </div>`;
+  } else {
+    out.innerHTML = `
+      <p class="section-label">Итоги обработки</p>
+      <div class="error-card">
+        <div class="error-kind">catch (${outcome.kind})</div>
+        <div class="error-msg">${outcome.message}</div>
+      </div>`;
+  }
+
+  document.getElementById('finally').innerHTML =
+    `<span class="finally-note"><span class="pip"></span>finally — обработка данных о потреблении электроэнергии завершена.</span>`;
+}
+
+render('s1');
+</script>
+</body>
+</html>

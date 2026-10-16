@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.collections.FXCollections?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import java.lang.String?>
+
+<ScrollPane fitToWidth="true" xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.demo1.HelloController">
+    <content>
+        <VBox spacing="14.0">
+            <padding>
+                <Insets top="16.0" right="20.0" bottom="16.0" left="20.0"/>
+            </padding>
+
+            <fx:define>
+                <ToggleGroup fx:id="courseGroup"/>
+                <ToggleGroup fx:id="formGroup"/>
+            </fx:define>
+
+            <Label text="Анкета студента" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+
+            <!-- Группа 1: личные данные -->
+            <TitledPane text="Личные данные" collapsible="false">
+                <GridPane hgap="12.0" vgap="10.0">
+                    <padding>
+                        <Insets top="10.0" right="10.0" bottom="10.0" left="10.0"/>
+                    </padding>
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="110.0" prefWidth="130.0"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="ФИО *" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <TextField fx:id="fioField" promptText="Иванов Иван Иванович"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Email *" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <TextField fx:id="emailField" promptText="name@example.com"
+                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Группа" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <TextField fx:id="groupField" promptText="ИС-21"
+                               GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                    <Label text="Город *" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <ComboBox fx:id="cityCombo" promptText="Выберите город" maxWidth="Infinity"
+                              GridPane.rowIndex="3" GridPane.columnIndex="1">
+                        <items>
+                            <FXCollections fx:factory="observableArrayList">
+                                <String fx:value="Алматы"/>
+                                <String fx:value="Астана"/>
+                                <String fx:value="Шымкент"/>
+                                <String fx:value="Караганда"/>
+                                <String fx:value="Актобе"/>
+                                <String fx:value="Другой"/>
+                            </FXCollections>
+                        </items>
+                    </ComboBox>
+
+                    <Label text="Дата рождения *" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                    <DatePicker fx:id="birthDatePicker" promptText="дд.мм.гггг" maxWidth="Infinity"
+                                GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                </GridPane>
+            </TitledPane>
+
+            <!-- Группа 2: обучение (две независимые группы RadioButton) -->
+            <TitledPane text="Обучение" collapsible="false">
+                <HBox spacing="40.0">
+                    <padding>
+                        <Insets top="10.0" right="10.0" bottom="10.0" left="10.0"/>
+                    </padding>
+                    <VBox spacing="8.0">
+                        <Label text="Курс *" style="-fx-font-weight: bold;"/>
+                        <RadioButton text="1 курс" userData="1 курс" toggleGroup="$courseGroup"/>
+                        <RadioButton text="2 курс" userData="2 курс" toggleGroup="$courseGroup"/>
+                        <RadioButton text="3 курс" userData="3 курс" toggleGroup="$courseGroup"/>
+                        <RadioButton text="4 курс" userData="4 курс" toggleGroup="$courseGroup"/>
+                    </VBox>
+                    <VBox spacing="8.0">
+                        <Label text="Форма обучения *" style="-fx-font-weight: bold;"/>
+                        <RadioButton text="Очная" userData="Очная" toggleGroup="$formGroup"/>
+                        <RadioButton text="Заочная" userData="Заочная" toggleGroup="$formGroup"/>
+                        <RadioButton text="Дистанционная" userData="Дистанционная" toggleGroup="$formGroup"/>
+                    </VBox>
+                </HBox>
+            </TitledPane>
+
+            <!-- Группа 3: интересы -->
+            <TitledPane text="Интересы и признаки" collapsible="false">
+                <HBox spacing="24.0">
+                    <padding>
+                        <Insets top="10.0" right="10.0" bottom="10.0" left="10.0"/>
+                    </padding>
+                    <CheckBox fx:id="sportCheck" text="Спорт"/>
+                    <CheckBox fx:id="scienceCheck" text="Наука"/>
+                    <CheckBox fx:id="creativityCheck" text="Творчество"/>
+                    <CheckBox fx:id="dormCheck" text="Нужно общежитие"/>
+                </HBox>
+            </TitledPane>
+
+            <CheckBox fx:id="consentCheck" text="Согласен на обработку данных"/>
+
+            <!-- Управляющие кнопки -->
+            <HBox spacing="12.0">
+                <Button fx:id="generateButton" text="Сформировать" onAction="#onGenerate"
+                        defaultButton="true"/>
+                <Button fx:id="clearButton" text="Очистить" onAction="#onClear"/>
+                <Button fx:id="exitButton" text="Выход" onAction="#onExit"/>
+            </HBox>
+
+            <!-- Область вывода результата -->
+            <TitledPane text="Карточка студента" collapsible="false">
+                <TextArea fx:id="resultArea" editable="false" wrapText="true" prefRowCount="9"/>
+            </TitledPane>
+        </VBox>
+    </content>
+</ScrollPane>
